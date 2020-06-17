@@ -1,0 +1,2 @@
+python-dotenv~=0.13.0
+pysolr~=3.9.0
