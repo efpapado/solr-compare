@@ -6,9 +6,10 @@ import settings
 
 def fetch_results(collection):
     params = {
-        'rows': 1000,
-        'sort': 'path ASC, id ASC, orgnr ASC',
-        'start': 0,
+        'rows': 200000,
+        'sort': 'id ASC',
+        # 'start': 0,
+        'cursorMark': '*',
     }
     docs = []
     total = False
@@ -18,17 +19,19 @@ def fetch_results(collection):
         if not total:
             total = _result.hits
 
-        perc = params['start'] / total * 100
+        _docs = _result.docs
+
+        perc = (len(docs) + len(_docs)) / total * 100
         print('Fetching {} {:.5f}%'.format(collection.url, perc))
 
-        _docs = _result.docs
-        _count = len(_docs)
-        if _count == params['rows']:
-            params['start'] = params['start'] + params['rows']
-            docs.extend(_docs)
-            continue
-        else:
+        docs.extend(_docs)
+
+        if params['cursorMark'] == _result.nextCursorMark:
             break
+
+        else:
+            params['cursorMark'] = _result.nextCursorMark
+            continue
 
     return _docs
 
@@ -100,10 +103,10 @@ def write_report(_diff_values):
 
 # Script starts here
 
-before = pysolr.Solr(settings.SOLR_BEFORE, always_commit=True)
+before = pysolr.Solr(settings.SOLR_BEFORE, timeout=120, always_commit=True)
 res_before = fetch_results(before)
 
-after = pysolr.Solr(settings.SOLR_AFTER, always_commit=True)
+after = pysolr.Solr(settings.SOLR_AFTER, timeout=120, always_commit=True)
 res_after = fetch_results(after)
 
 diff_raw = compare_results(res_before, res_after)
