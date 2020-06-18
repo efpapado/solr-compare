@@ -2,11 +2,12 @@ import pysolr
 import sys
 import csv
 import settings
+import pickle
 
 
 def fetch_results(collection):
     params = {
-        'rows': 200000,
+        'rows': 100000,
         'sort': 'id ASC',
         # 'start': 0,
         'cursorMark': '*',
@@ -19,12 +20,12 @@ def fetch_results(collection):
         if not total:
             total = _result.hits
 
-        _docs = _result.docs
+        _temp_docs = _result.docs
 
-        perc = (len(docs) + len(_docs)) / total * 100
+        perc = (len(docs) + len(_temp_docs)) / total * 100
         print('Fetching {} {:.5f}%'.format(collection.url, perc))
 
-        docs.extend(_docs)
+        docs.extend(_temp_docs)
 
         if params['cursorMark'] == _result.nextCursorMark:
             break
@@ -33,7 +34,7 @@ def fetch_results(collection):
             params['cursorMark'] = _result.nextCursorMark
             continue
 
-    return _docs
+    return docs
 
 
 def compare_results(_res_before, _res_after):
@@ -45,7 +46,13 @@ def compare_results(_res_before, _res_after):
 
     _diff_docs = []
     _diff_lite = {}
+    progress = 0
     for i in range(count_before):
+        progress += 1
+        if progress % 10000 == 0:
+            perc = (progress / count_before) * 100
+            print('Comparing {:.5f}%'.format(perc))
+
         doc_before = _res_before[i]
         doc_after = _res_after[i]
         keys = list(doc_before.keys())
@@ -104,10 +111,21 @@ def write_report(_diff_values):
 # Script starts here
 
 before = pysolr.Solr(settings.SOLR_BEFORE, timeout=120, always_commit=True)
-res_before = fetch_results(before)
+# res_before = fetch_results(before)
+# f = open("before.pkl", "wb")
+# pickle.dump(res_before, f)
+# f.close()
+with open('before.pkl', 'rb') as f:
+    res_before = pickle.load(f)
 
 after = pysolr.Solr(settings.SOLR_AFTER, timeout=120, always_commit=True)
-res_after = fetch_results(after)
+# res_after = fetch_results(after)
+# f = open("after.pkl", "wb")
+# pickle.dump(res_after, f)
+# f.close()
+with open('after.pkl', 'rb') as f:
+    res_after = pickle.load(f)
+
 
 diff_raw = compare_results(res_before, res_after)
 diff_docs = diff_raw[0]
